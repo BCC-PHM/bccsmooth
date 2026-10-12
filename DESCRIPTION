@@ -1,0 +1,40 @@
+Package: bccsmooth
+Type: Package
+Title: Bayesian Spatial Smoothing of Small-Area Public Health Rates
+Version: 0.1.0
+Authors@R: c(
+    person("Chung Him", "Au-Yeung",
+           email = "Chung.Au-Yeung@birmingham.gov.uk",
+           role = c("aut", "cre")),
+    person("Birmingham City Council", role = c("cph", "fnd")))
+Description: Generates spatially smoothed age-standardised rates for small areas 
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends:
+    R (>= 4.3.0)
+Imports:
+    DBI,
+    dbplyr,
+    dplyr,
+    magrittr,
+    Matrix,
+    odbc,
+    readr,
+    rlang,
+    sf,
+    spdep,
+    stringr,
+    tibble,
+    tmap
+Suggests:
+    INLA,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Additional_repositories: https://inla.r-inla-download.org/R/stable
+URL: https://github.com/<your-username>/bccsmooth
+BugReports: https://github.com/<your-username>/bccsmooth/issues
+Config/roxygen2/version: 8.0.0
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)

@@ -1,0 +1,26 @@
+# R session files
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+
+# source data and build script inputs
+data-raw/*
+!data-raw/bccsmooth_data.R
+
+# Exclude data file types
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+*.csv
+
+# scratch
+dev/
+draws_tmp.rds
+lsoa.adj
+
+# build artefacts
+*.tar.gz
+*.Rcheck/

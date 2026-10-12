@@ -1,0 +1,8 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^data-raw$
+^dev$
+^draws_tmp\.rds$
+^figs$
+^lsoa\.adj$
+^LICENSE\.md$
