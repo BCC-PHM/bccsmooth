@@ -33,7 +33,7 @@ Suggests:
     knitr,
     rmarkdown
 Additional_repositories: https://inla.r-inla-download.org/R/stable
-URL: https://github.com/<your-username>/bccsmooth
+URL: https://https://github.com/BCC-PHM/bccsmooth
 BugReports: https://github.com/<your-username>/bccsmooth/issues
 Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3
