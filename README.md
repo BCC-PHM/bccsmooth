@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # bccsmooth
 
 Created by: [Chung Au-Yeung](https://github.com/ChungHim5d) </br>
