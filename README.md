@@ -137,9 +137,10 @@ on small areas studies. *International Journal of Health Geographics, 19*, Artic
 54. https://doi.org/10.1186/s12942-020-00251-z
 
 DeLara, D., Zomorrodi, R., Quick, H., Tootoo, J., Li, R., Baker, J., Kwon, J.,
-Casper, M., & Vaughan, A. (2026). Bayesian models to generate small area estimates
-of population health: Tutorial for using rate stabilizing tools and their output.
-*JMIR [journal], [vol]*([issue]), Article [e#####]. https://doi.org/[DOI]
+Casper, M., & Vaughan, A. (2026). Bayesian Models to Generate Small Area Estimates
+of Population Health: Tutorial for Using Rate Stabilizing Tools and Their Output.
+*JMIR Public Health and Surveillance, 12*, Article e83498.
+[https://doi.org/10.2196/83498](https://doi.org/10.2196/83498)
 
 
 
