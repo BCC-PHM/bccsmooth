@@ -8,6 +8,7 @@ smooth_ph_deaths(
   material_list = NULL,
   threads = 6,
   post_sample = 1000,
+  event_floor = 10,
   verbose = TRUE
 )
 }
@@ -18,6 +19,10 @@ smooth_ph_deaths(
 \item{threads}{Number of threads passed to INLA.}
 
 \item{post_sample}{Number of posterior draws.}
+
+\item{event_floor}{Minimum observed deaths in an area for its rate to be
+labelled reliable. Defaults to 10, following ONS practice of not
+calculating age-standardised rates for cells with fewer than 10 deaths.}
 
 \item{verbose}{Print progress messages to the console.}
 }

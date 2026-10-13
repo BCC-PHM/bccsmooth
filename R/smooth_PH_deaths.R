@@ -4,6 +4,9 @@
 #'   `g`, `map` and `death_data`.
 #' @param threads Number of threads passed to INLA.
 #' @param post_sample Number of posterior draws.
+#' @param event_floor Minimum observed deaths in an area for its rate to be
+#'   labelled reliable. Defaults to 10, following ONS practice of not
+#'   calculating age-standardised rates for cells with fewer than 10 deaths.
 #' @param verbose Print progress messages to the console.
 #' @returns A list with `fit` (the INLA model), `final_result` (one row per
 #'   area, with the age-standardised rate, credible intervals, relative
@@ -17,6 +20,7 @@
 smooth_ph_deaths = function(material_list = NULL,
                             threads = 6,
                             post_sample = 1000,
+                            event_floor = 10,
                             verbose = TRUE){
 
   if (is.null(material_list)) {
@@ -161,19 +165,19 @@ smooth_ph_deaths = function(material_list = NULL,
   final_result = asr_result %>%
     left_join(material_list$inla_dat %>%
                 group_by(.data[[area_col]], new_id) %>%
-                summarise(local_pop = sum(localpop),
+                summarise(local_pop   = sum(localpop),
                           local_death = sum(death), .groups = "drop"),
               by = area_col) %>%
     mutate(rp_95 = asr_median / (asr_95UL - asr_95LL),
            rp_90 = asr_median / (asr_90UL - asr_90LL),
            rp_80 = asr_median / (asr_80UL - asr_80LL),
-           reliability_80 = case_when( rp_80 > 1 ~ "reliable at 80% CrI",
-                                       TRUE      ~ "Unreliable"),
-           reliability_90 = case_when( rp_90 > 1 ~ "reliable at 90% CrI",
-                                       TRUE      ~ "Unreliable"),
-           reliability_95 = case_when( rp_95 > 1 ~ "reliable at 95% CrI",
-                                       TRUE      ~ "Unreliable"),
-           city_mean      = mean(city_asr),
+           reliability_80 = case_when(local_death >= event_floor & rp_80 > 1 ~ "reliable at 80% CrI",
+                                      TRUE                                   ~ "Unreliable"),
+           reliability_90 = case_when(local_death >= event_floor & rp_90 > 1 ~ "reliable at 90% CrI",
+                                      TRUE                                   ~ "Unreliable"),
+           reliability_95 = case_when(local_death >= event_floor & rp_95 > 1 ~ "reliable at 95% CrI",
+                                      TRUE                                   ~ "Unreliable"),
+           city_mean       = mean(city_asr),
            exceedance_prob = rowMeans(asr > city_asr_mean))
 
   ex_levels = c(">95%", "90-95%", "80-90%", "20-80%",
@@ -208,5 +212,6 @@ smooth_ph_deaths = function(material_list = NULL,
               ex_cols      = ex_cols))
 
 }
+
 
 
