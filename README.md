@@ -100,6 +100,8 @@ tmap_save(test_exceedance_plot,
 
 The methods implemented in this package draw on:
 
+Ellis, D. (2024). *BSol.mapR* [R package]. GitHub. <https://github.com/BBCS-PHI/BSol.mapR>
+
 Moraga, P. (2019). *Geospatial health data: Modeling and visualization with R-INLA and Shiny*. Chapman & Hall/CRC.
 
 Pérez-Panadés, J., Botella-Rocamora, P., & Martinez-Beneito, M. A. (2020). Beyond standardized mortality ratios; some uses of smoothed age-specific mortality rates on small areas studies. *International Journal of Health Geographics, 19*, Article 54. <https://doi.org/10.1186/s12942-020-00251-z>
