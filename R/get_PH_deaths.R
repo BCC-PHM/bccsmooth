@@ -78,6 +78,11 @@ get_ph_deaths = function(
   )
 
   #---------------------------------------------------------
+  #"2022/2023" (warehouse) -> "2223" (population file)
+  #---------------------------------------------------------
+  to_pop_finyear = function(fy) paste0(substr(fy, 3, 4), substr(fy, 8, 9))
+
+  #---------------------------------------------------------
   #connect, and guarantee disconnect
   #---------------------------------------------------------
   con = DBI::dbConnect(odbc::odbc(), Driver = driver, Server = server,
@@ -239,9 +244,8 @@ get_ph_deaths = function(
     map         = lsoa21_boundaries
 
     #===============================================================
-    #prcoess mortality data
+    #process mortality data
     #===============================================================
-
     out_filtered = out %>%
       mutate(AgeGroup = case_when(
         AGE <=0               ~ "UNDER 1",
@@ -267,9 +271,8 @@ get_ph_deaths = function(
         TRUE                 ~ NA_character_
       )) %>%
       rename(postcode = `POSTCODE OF USUAL RESIDENCE OF DECEASED`) %>%
-      group_by(`LOWER SOA CODE OF USUAL RESIDENCE OF DECEASED`, AgeGroup) %>%
-      summarise(death = n(),
-                .groups = "drop") %>%
+      group_by(`LOWER SOA CODE OF USUAL RESIDENCE OF DECEASED`, AgeGroup, FinYear) %>%
+      summarise(death = n(), .groups = "drop") %>%
       rename(LSOA11CD = `LOWER SOA CODE OF USUAL RESIDENCE OF DECEASED`)
 
     #-----------------------------------------------------
@@ -277,22 +280,44 @@ get_ph_deaths = function(
     #-----------------------------------------------------
     out_filtered = out_filtered %>%
       left_join(lsoa11_to_lsoa21, by = c("LSOA11CD" = "lsoa11")) %>%
-      group_by(LSOA21CD = lsoa21, AgeGroup) %>%
+      group_by(LSOA21CD = lsoa21, AgeGroup, fin_year = to_pop_finyear(FinYear)) %>%
       summarise(death = sum(death * weight), .groups = "drop")
 
-    #make sure data above the max pop estmate year use max year pop from pop data
-    if (min(out$Year) < min(popestimate$year)){
-      stop("Population estimates only go back to ", min(popestimate$year), ".")
-    } else if (min(out$Year) <= max(popestimate$year)){
-      use_year = min(out$Year)
-    } else {
-      use_year = max(popestimate$year)
+    #-----------------------------------------------------
+    #map each requested year to an available population year
+    #-----------------------------------------------------
+    req_fin_year   = to_pop_finyear(financial_year)
+    avail_fin_year = sort(unique(popestimate$fin_year))
+
+    if (any(req_fin_year < min(avail_fin_year))) {
+      stop("Population estimates only go back to ", min(avail_fin_year), ".")
     }
 
-    out_proceesed = popestimate %>%
-      filter(year == use_year) %>%
-      left_join(out_filtered, by = c("LSOA21CD","age_band" = "AgeGroup")) %>%
-      mutate(death = ifelse(is.na(death), 0, death))
+    use_fin_year = ifelse(req_fin_year %in% avail_fin_year,
+                          req_fin_year, max(avail_fin_year))
+
+    if (any(use_fin_year != req_fin_year)) {
+      latest = paste0("20", substr(max(avail_fin_year), 1, 2), "/",
+                      substr(max(avail_fin_year), 3, 4))
+      message("No official population estimates for ",
+              toString(financial_year[use_fin_year != req_fin_year]),
+              " - ", latest, " population used instead.")
+    }
+
+    year_map = tibble(fin_year = req_fin_year, pop_fin_year = use_fin_year)
+
+    #-----------------------------------------------------
+    #join year by year, then pool to person-years
+    #-----------------------------------------------------
+    out_proceesed = year_map %>%
+      left_join(popestimate, by = c("pop_fin_year" = "fin_year"),
+                relationship = "many-to-many") %>%
+      left_join(out_filtered, by = c("LSOA21CD", "age_band" = "AgeGroup", "fin_year")) %>%
+      mutate(death = ifelse(is.na(death), 0, death)) %>%
+      group_by(LSOA21CD, age_band) %>%
+      summarise(localpop     = sum(count),
+                death        = sum(death),
+                standard_pop = dplyr::first(standard_pop), .groups = "drop")
 
     #-----------------------------------------------------
     #every death must survive the reallocation and joins
@@ -302,26 +327,21 @@ get_ph_deaths = function(
               round(sum(out_proceesed$death), 2), " after reallocation.")
     }
 
-    # Create a stable numeric ID for each LSOA (in current data order)
+    #-----------------------------------------------------
+    #stable numeric id, adjacency, inla graph
+    #-----------------------------------------------------
     map$new_id = 1:nrow(map)
-
-    # Create adjacency list
     mcnty_nb = poly2nb(map, row.names = map$new_id, queen = TRUE)
-
-    # Build the INLA graph directly from the adjacency matrix
     g = INLA::inla.read.graph(nb2mat(mcnty_nb, style = "B", zero.policy = TRUE))
 
-    # ------------------------------------------------------------
-    # Construct INLA indexing variables
-    # ------------------------------------------------------------
+    #-----------------------------------------------------
+    #construct inla indexing variables
+    #-----------------------------------------------------
     inla_dat = out_proceesed %>%
-      rename(localpop = count, AgeGroup = age_band) %>%
+      rename(AgeGroup = age_band) %>%
       left_join(map %>% st_drop_geometry() %>% select(LSOA21CD, new_id), by = "LSOA21CD") %>%
-      mutate(
-        # Align area indices with adjacency graph (1...N)
-        new_id = as.integer(new_id),
-        # Age group index (ordered)
-        Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
+      mutate(new_id    = as.integer(new_id),
+             Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
 
     #-----------------------------------------------------
     #every area must land on the graph
@@ -343,9 +363,8 @@ get_ph_deaths = function(
     map         = ward21_boundaries
 
     #===============================================================
-    #prcoess mortality data
+    #process mortality data
     #===============================================================
-
     out_filtered = out %>%
       mutate(AgeGroup = case_when(
         AGE <=0               ~ "UNDER 1",
@@ -371,45 +390,70 @@ get_ph_deaths = function(
         TRUE                 ~ NA_character_
       )) %>%
       rename(postcode = `POSTCODE OF USUAL RESIDENCE OF DECEASED`) %>%
-      group_by(`ELECTORAL WARD CODE OF USUAL RESIDENCE OF DECEASED`, AgeGroup) %>%
-      summarise(death = n(),
-                .groups = "drop") %>%
+      group_by(`ELECTORAL WARD CODE OF USUAL RESIDENCE OF DECEASED`, AgeGroup,
+               fin_year = to_pop_finyear(FinYear)) %>%
+      summarise(death = n(), .groups = "drop") %>%
       rename(WD21CD = `ELECTORAL WARD CODE OF USUAL RESIDENCE OF DECEASED`)
 
-    #make sure data above the max pop estmate year use max year pop from pop data
-    if (min(out$Year) < min(popestimate$year)){
-      stop("Population estimates only go back to ", min(popestimate$year), ".")
-    } else if (min(out$Year) <= max(popestimate$year)){
-      use_year = min(out$Year)
-    } else {
-      use_year = max(popestimate$year)
+    #-----------------------------------------------------
+    #map each requested year to an available population year
+    #-----------------------------------------------------
+    req_fin_year   = to_pop_finyear(financial_year)
+    avail_fin_year = sort(unique(popestimate$fin_year))
+
+    if (any(req_fin_year < min(avail_fin_year))) {
+      stop("Population estimates only go back to ", min(avail_fin_year), ".")
     }
 
-    out_proceesed = popestimate %>%
-      filter(year == use_year) %>%
-      left_join(out_filtered, by = c("WD21CD","age_band" = "AgeGroup")) %>%
-      mutate(death = ifelse(is.na(death), 0, death))
+    use_fin_year = ifelse(req_fin_year %in% avail_fin_year,
+                          req_fin_year, max(avail_fin_year))
 
-    # Create a stable numeric ID for each ward (in current data order)
+    if (any(use_fin_year != req_fin_year)) {
+      latest = paste0("20", substr(max(avail_fin_year), 1, 2), "/",
+                      substr(max(avail_fin_year), 3, 4))
+      message("No official population estimates for ",
+              toString(financial_year[use_fin_year != req_fin_year]),
+              " - ", latest, " population used instead.")
+    }
+
+    year_map = tibble(fin_year = req_fin_year, pop_fin_year = use_fin_year)
+
+    #-----------------------------------------------------
+    #join year by year, then pool to person-years
+    #-----------------------------------------------------
+    out_proceesed = year_map %>%
+      left_join(popestimate, by = c("pop_fin_year" = "fin_year"),
+                relationship = "many-to-many") %>%
+      left_join(out_filtered, by = c("WD21CD", "age_band" = "AgeGroup", "fin_year")) %>%
+      mutate(death = ifelse(is.na(death), 0, death)) %>%
+      group_by(WD21CD, age_band) %>%
+      summarise(localpop     = sum(count),
+                death        = sum(death),
+                standard_pop = dplyr::first(standard_pop), .groups = "drop")
+
+    #-----------------------------------------------------
+    #every death must survive the joins
+    #-----------------------------------------------------
+    if (abs(sum(out_proceesed$death) - nrow(out)) > 0.5) {
+      warning("Deaths went in as ", nrow(out), " and came out as ",
+              round(sum(out_proceesed$death), 2), " after the ward join.")
+    }
+
+    #-----------------------------------------------------
+    #stable numeric id, adjacency, inla graph
+    #-----------------------------------------------------
     map$new_id = 1:nrow(map)
-
-    # Create adjacency list
     mcnty_nb = poly2nb(map, row.names = map$new_id, queen = TRUE)
-
-    # Build the INLA graph directly from the adjacency matrix
     g = INLA::inla.read.graph(nb2mat(mcnty_nb, style = "B", zero.policy = TRUE))
 
-    # ------------------------------------------------------------
-    # Construct INLA indexing variables
-    # ------------------------------------------------------------
+    #-----------------------------------------------------
+    #construct inla indexing variables
+    #-----------------------------------------------------
     inla_dat = out_proceesed %>%
-      rename(localpop = count, AgeGroup = age_band) %>%
+      rename(AgeGroup = age_band) %>%
       left_join(map %>% st_drop_geometry() %>% select(WD21CD, new_id), by = "WD21CD") %>%
-      mutate(
-        # Align area indices with adjacency graph (1...N)
-        new_id = as.integer(new_id),
-        # Age group index (ordered)
-        Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
+      mutate(new_id    = as.integer(new_id),
+             Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
 
     #-----------------------------------------------------
     #every area must land on the graph
@@ -418,13 +462,29 @@ get_ph_deaths = function(
       stop(sum(is.na(inla_dat$new_id)), " rows have no matching area in the boundary data.")
     }
 
-    # ------------------------------------------------------------
-    # Restrict to the requested age bands
-    # ------------------------------------------------------------
     inla_dat = inla_dat %>%
       filter(AgeGroup %in% age_filter)
   }
 
-  return(list(death_data = out, inla_dat = inla_dat, g = g, map = map,
-              area_col = area_col))
+  #---------------------------------------------------------
+  #period label, e.g. "2023/24-2025/26"
+  #---------------------------------------------------------
+  fy_sorted = sort(financial_year)
+  fy_short  = sub("/\\d{2}(\\d{2})$", "/\\1", fy_sorted)
+
+  period = if (length(fy_short) == 1) {
+    fy_short
+  } else {
+    paste0(fy_short[1], "-", fy_short[length(fy_short)])
+  }
+
+  range = paste0(length(financial_year), " year range")
+
+  return(list(death_data = out,
+              inla_dat = inla_dat,
+              g = g,
+              map = map,
+              area_col = area_col,
+              period = period,
+              range = range ))
 }

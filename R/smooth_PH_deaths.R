@@ -25,7 +25,7 @@ smooth_ph_deaths = function(material_list = NULL,
 
   if (is.null(material_list)) {
     stop("Please supply the material list.")
-  } else if (!all(c("death_data", "inla_dat", "g", "map") %in% names(material_list))) {
+  } else if (!all(c("death_data", "inla_dat", "g", "map", "period", "range") %in% names(material_list))) {
     stop("Wrong material list supplied - use get_ph_deaths() to obtain it.")
   }
 
@@ -178,7 +178,9 @@ smooth_ph_deaths = function(material_list = NULL,
            reliability_95 = case_when(local_death >= event_floor & rp_95 > 1 ~ "reliable at 95% CrI",
                                       TRUE                                   ~ "Unreliable"),
            city_mean       = mean(city_asr),
-           exceedance_prob = rowMeans(asr > city_asr_mean))
+           exceedance_prob = rowMeans(asr > city_asr_mean),
+           period         = material_list$period,
+           range          = material_list$range)
 
   ex_levels = c(">95%", "90-95%", "80-90%", "20-80%",
                 "5-20%", "1-5%", "<1%")
@@ -203,13 +205,14 @@ smooth_ph_deaths = function(material_list = NULL,
 
 
   final_result = material_list$map %>%
-    left_join(final_result, by = "new_id")
+    left_join(final_result, by = c("new_id", area_col))
 
   return(list(fit          = fit,
               final_result = final_result,
               map          = material_list$map,
               area_col     = area_col,
-              ex_cols      = ex_cols))
+              ex_cols      = ex_cols
+              ))
 
 }
 

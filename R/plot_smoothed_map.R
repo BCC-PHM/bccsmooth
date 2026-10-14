@@ -28,7 +28,7 @@ plot_smoothed_map = function(final_map_data = NULL,
                              credible_interval = NULL,
                              credible_interval_map = FALSE,
                              fill_value = "median",
-                             fill_title = "Smoothed disease-related rate in Birmingham \nin 20XX/XX financial year",
+                             fill_title = NULL,
                              title_in        = "",
                              title_in_position = tm_pos_in(pos.h = 0.025, pos.v = 1.035),
                              palette = "brewer.blues",
@@ -89,17 +89,28 @@ plot_smoothed_map = function(final_map_data = NULL,
   #---------------------------------------------------
   #build the maps
   #---------------------------------------------------
+  if(is.null(fill_title)){
+  fill_title = paste0("Smoothed disease-related rate, Birmingham", "\nin ", final_map_data$period)
+  } else {
+    fill_title
+  }
+
+
+  #---------------------------------------------------
+  #build the maps
+  #---------------------------------------------------
   ci = sub("%$", "", credible_interval)
 
   #---------------------------------------------------
   #suppress every rate column for unreliable areas
   #---------------------------------------------------
-  rp_col = paste0("rp_", ci)
-  if (!rp_col %in% names(final_map_data)) {
-    stop("Column `", rp_col, "` not found. Was this produced by smooth_ph_deaths()?")
+  rel_col = paste0("reliability_", ci)
+  if (!rel_col %in% names(final_map_data)) {
+    stop("Column `", rel_col, "` not found. Was this produced by smooth_ph_deaths()?")
   }
 
-  bad = which(is.na(final_map_data[[rp_col]]) | final_map_data[[rp_col]] < 1)
+  bad = which(is.na(final_map_data[[rel_col]]) |
+                final_map_data[[rel_col]] == "Unreliable")
   for (col in grep("^asr_", names(final_map_data), value = TRUE)) {
     final_map_data[[col]][bad] = NA
   }
