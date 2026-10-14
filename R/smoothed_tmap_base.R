@@ -29,7 +29,7 @@ smoothed_tmap_base = function(final_map_data,
   base_map = tm_shape(final_map_data) +
     tm_polygons(
       fill        = fill_value,
-      fill.scale  = tm_scale_intervals(n = 6, style = "quantile", values = palette, label.na = "Suppressed"),
+      fill.scale  = tm_scale_intervals(n = 6, style = "quantile", values = palette, label.na = "Unreliable"),
       fill.legend = tm_legend(title = "per 100,000", frame = FALSE, group_id = "legend"),
       col         = boundary_colour
     ) +

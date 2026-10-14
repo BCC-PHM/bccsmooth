@@ -4,13 +4,12 @@
 #'   `g`, `map` and `death_data`.
 #' @param threads Number of threads passed to INLA.
 #' @param post_sample Number of posterior draws.
-#' @param event_floor Minimum observed deaths in an area for its rate to be
-#'   labelled reliable. Defaults to 10, following ONS practice of not
-#'   calculating age-standardised rates for cells with fewer than 10 deaths.
 #' @param verbose Print progress messages to the console.
 #' @returns A list with `fit` (the INLA model), `final_result` (one row per
 #'   area, with the age-standardised rate, credible intervals, relative
-#'   precision and exceedance probability), `map` and `area_col`.
+#'   precision, reliability labels, exceedance probability and the period
+#'   the estimate covers), `map`, `area_col` and `ex_cols` (the colour
+#'   scale used by [plot_exceedance_prob()]).
 #' @importFrom dplyr distinct arrange pull group_by summarise left_join mutate case_when
 #' @importFrom tibble tibble
 #' @importFrom Matrix sparse.model.matrix crossprod
@@ -20,7 +19,6 @@
 smooth_ph_deaths = function(material_list = NULL,
                             threads = 6,
                             post_sample = 1000,
-                            event_floor = 10,
                             verbose = TRUE){
 
   if (is.null(material_list)) {
@@ -171,16 +169,16 @@ smooth_ph_deaths = function(material_list = NULL,
     mutate(rp_95 = asr_median / (asr_95UL - asr_95LL),
            rp_90 = asr_median / (asr_90UL - asr_90LL),
            rp_80 = asr_median / (asr_80UL - asr_80LL),
-           reliability_80 = case_when(local_death >= event_floor & rp_80 > 1 ~ "reliable at 80% CrI",
-                                      TRUE                                   ~ "Unreliable"),
-           reliability_90 = case_when(local_death >= event_floor & rp_90 > 1 ~ "reliable at 90% CrI",
-                                      TRUE                                   ~ "Unreliable"),
-           reliability_95 = case_when(local_death >= event_floor & rp_95 > 1 ~ "reliable at 95% CrI",
-                                      TRUE                                   ~ "Unreliable"),
+           reliability_80 = case_when(rp_80 > 1 ~ "reliable at 80% CrI",
+                                      TRUE      ~ "Unreliable"),
+           reliability_90 = case_when(rp_90 > 1 ~ "reliable at 90% CrI",
+                                      TRUE      ~ "Unreliable"),
+           reliability_95 = case_when(rp_95 > 1 ~ "reliable at 95% CrI",
+                                      TRUE      ~ "Unreliable"),
            city_mean       = mean(city_asr),
            exceedance_prob = rowMeans(asr > city_asr_mean),
-           period         = material_list$period,
-           range          = material_list$range)
+           period          = material_list$period,
+           range           = material_list$range)
 
   ex_levels = c(">95%", "90-95%", "80-90%", "20-80%",
                 "5-20%", "1-5%", "<1%")

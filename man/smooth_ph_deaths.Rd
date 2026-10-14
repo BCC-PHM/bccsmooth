@@ -8,7 +8,6 @@ smooth_ph_deaths(
   material_list = NULL,
   threads = 6,
   post_sample = 1000,
-  event_floor = 10,
   verbose = TRUE
 )
 }
@@ -20,16 +19,14 @@ smooth_ph_deaths(
 
 \item{post_sample}{Number of posterior draws.}
 
-\item{event_floor}{Minimum observed deaths in an area for its rate to be
-labelled reliable. Defaults to 10, following ONS practice of not
-calculating age-standardised rates for cells with fewer than 10 deaths.}
-
 \item{verbose}{Print progress messages to the console.}
 }
 \value{
 A list with \code{fit} (the INLA model), \code{final_result} (one row per
 area, with the age-standardised rate, credible intervals, relative
-precision and exceedance probability), \code{map} and \code{area_col}.
+precision, reliability labels, exceedance probability and the period
+the estimate covers), \code{map}, \code{area_col} and \code{ex_cols} (the colour
+scale used by \code{\link[=plot_exceedance_prob]{plot_exceedance_prob()}}).
 }
 \description{
 Fit a BYM2 small-area model and summarise age-standardised rates

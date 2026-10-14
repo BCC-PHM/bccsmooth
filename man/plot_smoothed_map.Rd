@@ -9,7 +9,7 @@ plot_smoothed_map(
   credible_interval = NULL,
   credible_interval_map = FALSE,
   fill_value = "median",
-  fill_title = "Smoothed disease-related rate in Birmingham \\nin 20XX/XX financial year",
+  fill_title = NULL,
   title_in = "",
   title_in_position = tm_pos_in(pos.h = 0.025, pos.v = 1.035),
   palette = "brewer.blues",

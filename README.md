@@ -47,7 +47,7 @@ devtools::install_github("BCC-PHM/bccsmooth")
 
 **1. Turn on Net motion (Mobility client)!**
 
-**2. Extract the deaths and build the model inputs.** This connects to the `PH_Deaths` warehouse, so it needs access to the council network. `diagnostic_code` takes ICD-10 patterns, `age` takes a single cut such as `"<75"` or two bounds such as `c("15", "64")`, and `geo_level` is `"lsoa21"` or `"ward"`. If no `geo_level` is supplied, the default extraction will be at LSOA level. The default `financial_year` takes `2025/2026`, to use other financial_year please supply with `YYYY/YYYY` format. Multiple financial years can also be specified and the final result will be a N-year pooled rate. 
+**2. Extract the deaths and build the model inputs.** This connects to the `PH_Deaths` warehouse, so it needs access to the council network. `diagnostic_code` takes ICD-10 patterns, `age` takes a single cut such as `"<75"` or two bounds such as `c("15", "64")`, and `geo_level` is `"lsoa21"` or `"ward"`. If no `geo_level` is supplied, the default extraction will be at LSOA level. The default `financial_year` takes `2025/2026`, to use other financial_year please supply with `YYYY/YYYY` format. Multiple financial years can also be specified and the final result will be a N-year pooled rate.
 
 ``` r
 wardr = get_ph_deaths(age = "<75", diagnostic_code = c("I[0-9]%"),
@@ -60,10 +60,9 @@ wardr = get_ph_deaths(age = "<75", diagnostic_code = c("I[0-9]%"),
 
 ``` r
 res = smooth_ph_deaths(wardr , post_sample = 1000)
-
 ```
 
-**4. Map the smoothed rate.** Areas failing the reliability threshold are drawn as "Suppressed". The default reliability uses 95% CrI when no credible_interval is specified. You can specify a less strict threshold — `"90"` or `"80"` — which lets more areas through. **If a lot of the areas are still suppressed when using LSOA level, you might want to try pooling multiple years or using ward level smoothing**.
+**4. Map the smoothed rate.** Areas failing the reliability threshold are drawn as "Unreliable". The default reliability uses 95% CrI when no credible_interval is specified. You can specify a less strict threshold — `"90"` or `"80"` — which lets more areas through. **If a lot of the areas are still suppressed when using LSOA level, you might want to try pooling multiple years or using ward level smoothing**.
 
 ``` r
 map_plot_ward = plot_smoothed_map(res,
@@ -98,7 +97,6 @@ tmap_save(test_exceedance_prob_map_plot,
           height = 6,
           width = 5,
           dpi=600)
-
 ```
 
 ![](figs/test_exceedance_prob_map_plot.png)
