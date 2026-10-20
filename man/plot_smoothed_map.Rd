@@ -21,7 +21,7 @@ plot_smoothed_map(
 }
 \arguments{
 \item{final_map_data}{An sf object: the \code{final_result} returned by
-\code{\link[=smooth_ph_deaths]{smooth_ph_deaths()}}, carrying geometry, the \code{asr_} columns and the
+\code{\link[=smooth_ph_rates]{smooth_ph_rates()}}, carrying geometry, the \code{asr_} columns and the
 \code{rp_} columns.}
 
 \item{credible_interval}{One of \code{"80"}, \code{"90"} or \code{"95"} (the \verb{\%} is

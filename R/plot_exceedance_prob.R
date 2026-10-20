@@ -3,7 +3,7 @@
 #' Draws a categorical choropleth of `ex_prob_label`, the banded probability
 #' that an area's smoothed rate exceeds the city mean.
 #'
-#' @param final_map_data Output of [smooth_ph_deaths()] - a list with `fit`,
+#' @param final_map_data Output of [smooth_ph_rates()] - a list with `fit`,
 #'   `final_result`, `map`, `area_col` and `ex_cols`.
 #' @param fill_value Column holding the banded exceedance labels.
 #' @param fill_title Map title.
@@ -25,7 +25,7 @@ plot_exceedance_prob = function(final_map_data = NULL,
   if (is.null(final_map_data)) {
     stop("Please supply the smoothing output.")
   } else if (!all(c("fit", "final_result", "map", "area_col", "ex_cols") %in% names(final_map_data))) {
-    stop("Wrong list supplied - use smooth_ph_deaths() to obtain it.")
+    stop("Wrong list supplied - use smooth_ph_rates() to obtain it.")
   }
 
   ex_cols        = final_map_data$ex_cols
@@ -56,7 +56,7 @@ plot_exceedance_prob = function(final_map_data = NULL,
                position = c("RIGHT", "bottom")) +
     tm_credits(
       text = paste0(
-        "Contains OS data \u00A9 Crown copyright and database right ",
+        "Contains OS data © Crown copyright and database right ",
         format(Sys.Date(), "%Y"),
         ". Source:\nOffice for National Statistics licensed under the Open Government Licence v.3.0."
       ),

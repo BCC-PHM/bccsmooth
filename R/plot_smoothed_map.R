@@ -6,7 +6,7 @@
 #' bounds as a three-map list.
 #'
 #' @param final_map_data An sf object: the `final_result` returned by
-#'   [smooth_ph_deaths()], carrying geometry, the `asr_` columns and the
+#'   [smooth_ph_rates()], carrying geometry, the `asr_` columns and the
 #'   `rp_` columns.
 #' @param credible_interval One of `"80"`, `"90"` or `"95"` (the `%` is
 #'   optional). `NULL` uses 95%.
@@ -41,7 +41,7 @@ plot_smoothed_map = function(final_map_data = NULL,
   if (is.null(final_map_data)) {
     stop("Please supply the smoothing output.")
   } else if (!all(c("fit", "final_result", "map", "area_col", "ex_cols") %in% names(final_map_data))) {
-    stop("Wrong list supplied - use smooth_ph_deaths() to obtain it.")
+    stop("Wrong list supplied - use smooth_ph_rates() to obtain it.")
   }
 
   final_map_data = final_map_data$final_result
@@ -90,7 +90,7 @@ plot_smoothed_map = function(final_map_data = NULL,
   #build the maps
   #---------------------------------------------------
   if(is.null(fill_title)){
-  fill_title = paste0("Smoothed disease-related rate, Birmingham", "\nin ", final_map_data$period)
+    fill_title = paste0("Smoothed disease-related rate, Birmingham", "\nin ", final_map_data$period)
   } else {
     fill_title
   }
@@ -106,7 +106,7 @@ plot_smoothed_map = function(final_map_data = NULL,
   #---------------------------------------------------
   rel_col = paste0("reliability_", ci)
   if (!rel_col %in% names(final_map_data)) {
-    stop("Column `", rel_col, "` not found. Was this produced by smooth_ph_deaths()?")
+    stop("Column `", rel_col, "` not found. Was this produced by smooth_ph_rates()?")
   }
 
   bad = which(is.na(final_map_data[[rel_col]]) |
@@ -149,4 +149,3 @@ plot_smoothed_map = function(final_map_data = NULL,
                             paste0(fill_title, " (UL ", ci, "%)")))
 
 }
-

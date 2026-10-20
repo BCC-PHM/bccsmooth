@@ -1,7 +1,8 @@
 #' Fit a BYM2 small-area model and summarise age-standardised rates
 #'
-#' @param material_list Output of [get_ph_deaths()] - a list with `inla_dat`,
-#'   `g`, `map` and `death_data`.
+#' @param material_list Output of [get_ph_deaths()] or [get_ph_hes()] - a list
+#'   with `inla_dat`, `g`, `map` and either `death_data` or `admission_data`.
+#'   The count column modelled is `death` or `admission` accordingly.
 #' @param threads Number of threads passed to INLA.
 #' @param post_sample Number of posterior draws.
 #' @param verbose Print progress messages to the console.
@@ -14,17 +15,33 @@
 #' @importFrom tibble tibble
 #' @importFrom Matrix sparse.model.matrix crossprod
 #' @importFrom stats quantile
+#' @importFrom rlang := .data
 #' @importFrom magrittr %>%
 #' @export
-smooth_ph_deaths = function(material_list = NULL,
-                            threads = 6,
-                            post_sample = 1000,
-                            verbose = TRUE){
+smooth_ph_rates = function(material_list = NULL,
+                           threads = 6,
+                           post_sample = 1000,
+                           verbose = TRUE){
 
   if (is.null(material_list)) {
     stop("Please supply the material list.")
-  } else if (!all(c("death_data", "inla_dat", "g", "map", "period", "range") %in% names(material_list))) {
-    stop("Wrong material list supplied - use get_ph_deaths() to obtain it.")
+  } else if (!all(c("inla_dat", "g", "map", "period", "range") %in% names(material_list))) {
+    stop("Wrong material list supplied - use get_ph_deaths() or get_ph_hes() to obtain it.")
+  }
+
+  #---------------------------------------------------
+  #which count column to model: admissions or deaths
+  #---------------------------------------------------
+  if ("admission_data" %in% names(material_list)) {
+    outcome = "admission"
+  } else if ("death_data" %in% names(material_list)) {
+    outcome = "death"
+  } else {
+    stop("Wrong material list supplied - use get_ph_deaths() or get_ph_hes() to obtain it.")
+  }
+
+  if (!outcome %in% names(material_list$inla_dat)) {
+    stop("Column `", outcome, "` not found in inla_dat.")
   }
 
   #---------------------------------------------------
@@ -68,12 +85,17 @@ smooth_ph_deaths = function(material_list = NULL,
       control.group = list(model = "ar1") # AR(1) dependence of spatial effects across age groups
     )
 
+  #---------------------------------------------------
+  #put the right count column on the left of the formula
+  #---------------------------------------------------
+  formula[[2]] = as.name(outcome)
+
   # ------------------------------------------------------------
   # Fit the model
   # offset = log(local_pop) makes the model estimate mortality rates per person-year (or per person),
   # while the outcome remains as counts.
   # ------------------------------------------------------------
-  if (any(material_list$inla_dat$death != round(material_list$inla_dat$death))) {
+  if (any(material_list$inla_dat[[outcome]] != round(material_list$inla_dat[[outcome]]))) {
     fam = "xpoisson"
   } else {
     fam = "poisson"
@@ -163,8 +185,8 @@ smooth_ph_deaths = function(material_list = NULL,
   final_result = asr_result %>%
     left_join(material_list$inla_dat %>%
                 group_by(.data[[area_col]], new_id) %>%
-                summarise(local_pop   = sum(localpop),
-                          local_death = sum(death), .groups = "drop"),
+                summarise(local_pop = sum(localpop),
+                          !!paste0("local_", outcome) := sum(.data[[outcome]]), .groups = "drop"),
               by = area_col) %>%
     mutate(rp_95 = asr_median / (asr_95UL - asr_95LL),
            rp_90 = asr_median / (asr_90UL - asr_90LL),
@@ -210,9 +232,7 @@ smooth_ph_deaths = function(material_list = NULL,
               map          = material_list$map,
               area_col     = area_col,
               ex_cols      = ex_cols
-              ))
+  ))
 
 }
-
-
 

@@ -16,7 +16,7 @@ plot_exceedance_prob(
 )
 }
 \arguments{
-\item{final_map_data}{Output of \code{\link[=smooth_ph_deaths]{smooth_ph_deaths()}} - a list with \code{fit},
+\item{final_map_data}{Output of \code{\link[=smooth_ph_rates]{smooth_ph_rates()}} - a list with \code{fit},
 \code{final_result}, \code{map}, \code{area_col} and \code{ex_cols}.}
 
 \item{fill_value}{Column holding the banded exceedance labels.}

@@ -1,7 +1,7 @@
 Package: bccsmooth
 Type: Package
 Title: Bayesian Spatial Smoothing of Small-Area Public Health Rates
-Version: 0.1.2
+Version: 0.1.3
 Authors@R: c(
     person("Chung Him", "Au-Yeung",
            email = "Chung.Au-Yeung@birmingham.gov.uk",
