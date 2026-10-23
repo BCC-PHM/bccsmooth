@@ -230,6 +230,7 @@ get_ph_deaths = function(
   out = out %>%
     dplyr::collect() %>%
     dplyr::mutate(
+      AGE        = as.numeric(AGE),
       death_date = as.Date(sprintf("%08d", as.integer(`DATE OF DEATH OF DECEASED`)), "%d%m%Y")
     )
 
@@ -343,6 +344,27 @@ get_ph_deaths = function(
       mutate(new_id    = as.integer(new_id),
              Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
 
+
+
+
+    #-----------------------------------------------------
+    #construct inla spatio-temporal indexing variables
+    #-----------------------------------------------------
+    inla_dat_st = year_map %>%
+      left_join(popestimate, by = c("pop_fin_year" = "fin_year"),
+                relationship = "many-to-many") %>%
+      left_join(out_filtered, by = c("LSOA21CD", "age_band" = "AgeGroup", "fin_year")) %>%
+      mutate(death = ifelse(is.na(death), 0, death)) %>%
+      group_by(LSOA21CD, age_band, fin_year) %>%
+      summarise(localpop     = sum(count),
+                death        = sum(death),
+                standard_pop = dplyr::first(standard_pop), .groups = "drop") %>%
+      rename(AgeGroup = age_band) %>%
+      left_join(map %>% st_drop_geometry() %>% select(LSOA21CD, new_id), by = "LSOA21CD") %>%
+      mutate(new_id    = as.integer(new_id),
+             Age_index = as.integer(factor(AgeGroup, levels = age_levels)),
+             time_id   = as.integer(factor(fin_year)))
+
     #-----------------------------------------------------
     #every area must land on the graph
     #-----------------------------------------------------
@@ -455,14 +477,42 @@ get_ph_deaths = function(
       mutate(new_id    = as.integer(new_id),
              Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
 
+
+    #-----------------------------------------------------
+    #construct inla spatio-temporal indexing variables
+    #-----------------------------------------------------
+    inla_dat_st = year_map %>%
+      left_join(popestimate, by = c("pop_fin_year" = "fin_year"),
+                relationship = "many-to-many") %>%
+      left_join(out_filtered, by = c("WD21CD", "age_band" = "AgeGroup", "fin_year")) %>%
+      mutate(death = ifelse(is.na(death), 0, death)) %>%
+      group_by(WD21CD, age_band, fin_year) %>%
+      summarise(localpop     = sum(count),
+                death        = sum(death),
+                standard_pop = dplyr::first(standard_pop), .groups = "drop")%>%
+      rename(AgeGroup = age_band) %>%
+      left_join(map %>% st_drop_geometry() %>% select(WD21CD, new_id), by = "WD21CD") %>%
+      mutate(new_id    = as.integer(new_id),
+             Age_index = as.integer(factor(AgeGroup, levels = age_levels)),
+             time_id   = as.integer(factor(fin_year))
+             )
+
+
+
     #-----------------------------------------------------
     #every area must land on the graph
     #-----------------------------------------------------
-    if (anyNA(inla_dat$new_id)) {
-      stop(sum(is.na(inla_dat$new_id)), " rows have no matching area in the boundary data.")
+    if (anyNA(inla_dat$new_id) || anyNA(inla_dat_st$new_id)) {
+      stop(sum(is.na(inla_dat_st$new_id)), " rows have no matching area in the boundary data.")
     }
 
+    # ------------------------------------------------------------
+    # Restrict to the requested age bands
+    # ------------------------------------------------------------
     inla_dat = inla_dat %>%
+      filter(AgeGroup %in% age_filter)
+
+    inla_dat_st = inla_dat_st %>%
       filter(AgeGroup %in% age_filter)
   }
 
@@ -482,6 +532,7 @@ get_ph_deaths = function(
 
   return(list(death_data = out,
               inla_dat = inla_dat,
+              inla_dat_st = inla_dat_st,
               g = g,
               map = map,
               area_col = area_col,
