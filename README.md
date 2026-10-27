@@ -2,17 +2,32 @@
 
 Created by: [Chung Au-Yeung](https://github.com/ChungHim5d) </br> Population Health Management</br> Birmingham City Council
 
-### What's new in 0.1.3 (October 2026)
+### What's new in 0.1.4 (27/10/2026)
 
--   **Hospital admissions:** new `get_ph_hes()` extracts inpatient admissions from the `PH_HES`, with similar arguments and output structure as `get_ph_deaths()`.
--   **Renamed:** `smooth_ph_deaths()` is now `smooth_ph_rates()`, as it smooths both deaths and admissions.
--   **Output column:** `final_result` now has `local_death` or `local_admission`, depending on the source.
+- **Age-space-time model:** new `smooth_ph_rates_st()` fits the Goicoa et al. (2016) age-space-time model (Leroux spatial term, RW1 age and time, space-age, space-time and age-time interactions). This model now only works on data extracted from `get_ph_deaths()` and it is recommended to use data from 2001/02 to 2025/26 at ward level for age-space-time modelling.
+
+- **Age bands:** `get_ph_deaths()` gains an `age_bands` argument with presets `"5yr"` (default), `"10yr"`, `"under40_merged"` and `"under20_over65_merged"`, and now also returns `inla_dat_st` (one row per area, age band and year) for `smooth_ph_rates_st()`.
+
+- **Mapping the temporal output:** `plot_smoothed_map()` and `plot_exceedance_prob()` accept output from `smooth_ph_rates_st()` and facet the map by financial year.
+
+- **Zero population:** in both smoothing functions, area-age cells with a population of zero are given 1, so the model can still estimate a smoothed rate for them (following Smith et al., 2025).
+
+#### Bug fixes
+
+- **Character age:** `get_ph_deaths()` received age from the warehouse as text, so age bands were assigned by comparing text rather than numbers (for example, "9" counts as greater than "75" when compared as text). Deaths could therefore land in the wrong age band. Age is now converted to a number before banding.
+
+- **Infant deaths:** `get_ph_deaths()` built age bands from `AGE`, which records age in months for deaths under one year. Infant deaths were therefore placed in the 1-4, 5-9 or 10-14 bands instead of "UNDER 1". Age bands are now built from `AgeInYears`, which correctly distribute infant deaths.
+
+### What's new in 0.1.3 (20/10/2026)
+
+- **Hospital admissions:** new `get_ph_hes()` extracts inpatient admissions from the `PH_HES`, with similar arguments and output structure as `get_ph_deaths()`.
+- **Renamed:** `smooth_ph_deaths()` is now `smooth_ph_rates()`, as it smooths both deaths and admissions.
+- **Output column:** `final_result` now has `local_death` or `local_admission`, depending on the source.
 
 ### Possible future updates:
 
--   A universal smoothing function for user-supplied counts and denominators, so the package can be used with data from outside the warehouse
--   Prevalence smoothing
--   Spatio-temporal smoothing
+- A universal smoothing function for user-supplied counts and denominators, so the package can be used with data from outside the warehouse
+- Prevalence smoothing
 
 ## Introduction
 
@@ -30,9 +45,9 @@ At present it supports two workflows for analysts to easily extract death and in
 
 ### Requirements
 
--   Access to the `PH_Deaths` database with net-motion on
--   ODBC Driver 17 for SQL Server
--   [R-INLA](https://www.r-inla.org/download-install) might need to be installed separately:
+- Access to the `PH_Deaths` database with net-motion on
+- ODBC Driver 17 for SQL Server
+- [R-INLA](https://www.r-inla.org/download-install) might need to be installed separately:
 
 ``` r
 install.packages(
@@ -112,15 +127,15 @@ tmap_save(test_exceedance_prob_map_plot,
 
 To match fingertips indicators closely, the default filters are:
 
-| Argument                    | Default       | Meaning                                                                             |
+| Argument | Default | Meaning |
 |------------------------|------------------------|------------------------|
-| `primary_diagnostic_code`   | `NULL`        | ICD-10 patterns; `NULL` returns all causes                                          |
-| `secondary_diagnostic_code` | `FALSE`       | `FALSE` checks the primary diagnosis only; `TRUE` checks all 20 diagnosis positions |
-| `epistat`                   | `"3"`         | Finished episodes                                                                   |
-| `epiorder`                  | `"1"`         | First episode of each spell, so each admission is counted once                      |
-| `sex`                       | `c("1", "2")` | Only includes valid sex                                                             |
-| `classpat`                  | `c("1", "2")` | Ordinary admissions and day cases; excludes regular day and night attenders         |
-| `resladst_ons`              | `"E08000025"` | Birmingham residents                                                                |
+| `primary_diagnostic_code` | `NULL` | ICD-10 patterns; `NULL` returns all causes |
+| `secondary_diagnostic_code` | `FALSE` | `FALSE` checks the primary diagnosis only; `TRUE` checks all 20 diagnosis positions |
+| `epistat` | `"3"` | Finished episodes |
+| `epiorder` | `"1"` | First episode of each spell, so each admission is counted once |
+| `sex` | `c("1", "2")` | Only includes valid sex |
+| `classpat` | `c("1", "2")` | Ordinary admissions and day cases; excludes regular day and night attenders |
+| `resladst_ons` | `"E08000025"` | Birmingham residents |
 
 ``` r
 hes_ward = get_ph_hes(primary_diagnostic_code = c("K70%"),
@@ -133,14 +148,18 @@ res_hes = smooth_ph_rates(hes_ward, post_sample = 1000)
 
 The result can be passed to `plot_smoothed_map()` and `plot_exceedance_prob()` exactly as in steps 4 and 5.
 
-### Reference
+### References
 
 The methods implemented in this package draw on:
 
+DeLara, D., Zomorrodi, R., Quick, H., Tootoo, J., Li, R., Baker, J., Kwon, J., Casper, M., & Vaughan, A. (2026). Bayesian models to generate small area estimates of population health: Tutorial for using rate stabilizing tools and their output. *JMIR Public Health and Surveillance, 12*, Article e83498. <https://doi.org/10.2196/83498>
+
 Ellis, D. (2024). *BSol.mapR* [R package]. GitHub. <https://github.com/BBCS-PHI/BSol.mapR>
+
+Goicoa, T., Ugarte, M. D., Etxeberria, J., & Militino, A. F. (2016). Age–space–time CAR models in Bayesian disease mapping. *Statistics in Medicine, 35*(14), 2391–2405. <https://doi.org/10.1002/sim.6873>
 
 Moraga, P. (2019). *Geospatial health data: Modeling and visualization with R-INLA and Shiny*. Chapman & Hall/CRC.
 
 Pérez-Panadés, J., Botella-Rocamora, P., & Martinez-Beneito, M. A. (2020). Beyond standardized mortality ratios; some uses of smoothed age-specific mortality rates on small areas studies. *International Journal of Health Geographics, 19*, Article 54. <https://doi.org/10.1186/s12942-020-00251-z>
 
-DeLara, D., Zomorrodi, R., Quick, H., Tootoo, J., Li, R., Baker, J., Kwon, J., Casper, M., & Vaughan, A. (2026). Bayesian Models to Generate Small Area Estimates of Population Health: Tutorial for Using Rate Stabilizing Tools and Their Output. *JMIR Public Health and Surveillance, 12*, Article e83498. <https://doi.org/10.2196/83498>
+Smith, M. J., Roberts, E. K., Charlton, M. E., & Oleson, J. J. (2025). Incorporating small-area estimation into mediation analyses with areal datasets. *Spatial and Spatio-temporal Epidemiology, 54*, 100735. <https://doi.org/10.1016/j.sste.2025.100735>

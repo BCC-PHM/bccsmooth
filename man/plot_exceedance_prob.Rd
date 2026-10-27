@@ -9,30 +9,46 @@ plot_exceedance_prob(
   fill_value = "ex_prob_label",
   fill_title =
     "Exceedance probability that the rate is greater than \\nBirmingham average",
+  title_in = "",
+  title_in_position = tm_pos_in(pos.h = 0.025, pos.v = 1.035),
   legend_text_size = 0.6,
   legend_title_size = 0.7,
   legend_position = tm_pos_in(pos.h = 0.02, pos.v = 1.01),
-  boundary_colour = "grey70"
+  boundary_colour = "grey70",
+  fn_col = 7,
+  fn_row = 4
 )
 }
 \arguments{
-\item{final_map_data}{Output of \code{\link[=smooth_ph_rates]{smooth_ph_rates()}} - a list with \code{fit},
-\code{final_result}, \code{map}, \code{area_col} and \code{ex_cols}.}
+\item{final_map_data}{The full list returned by \code{\link[=smooth_ph_rates]{smooth_ph_rates()}} or
+\code{\link[=smooth_ph_rates_st]{smooth_ph_rates_st()}} (must contain \code{fit}, \code{final_result}, \code{map},
+\code{area_col} and \code{ex_cols}).}
 
 \item{fill_value}{Column holding the banded exceedance labels.}
 
 \item{fill_title}{Map title.}
 
+\item{title_in}{Subtitle drawn in grey in each panel of the age-space-time
+map. Defaults to \code{""} (none). Ignored for single maps.}
+
+\item{title_in_position, legend_position}{tmap position objects.
+\code{title_in_position} is replaced by an outside-top position for
+age-space-time maps.}
+
 \item{legend_text_size, legend_title_size}{Relative text sizes.}
 
-\item{legend_position}{A tmap position object.}
-
 \item{boundary_colour}{Colour of the polygon outlines.}
+
+\item{fn_col, fn_row}{Number of facet columns and rows when mapping
+age-space-time output by financial year. Ignored otherwise.}
 }
 \value{
-A \code{tmap} object.
+A \code{tmap} object, faceted by \code{fin_year} for age-space-time output.
 }
 \description{
 Draws a categorical choropleth of \code{ex_prob_label}, the banded probability
-that an area's smoothed rate exceeds the city mean.
+that an area's smoothed rate exceeds the city mean. Accepts output from
+either \code{\link[=smooth_ph_rates]{smooth_ph_rates()}} or \code{\link[=smooth_ph_rates_st]{smooth_ph_rates_st()}}. For age-space-time
+output (a \code{fin_year} column is present), the map is faceted by financial
+year, with the subtitle and legend drawn in each panel.
 }

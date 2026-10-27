@@ -6,3 +6,5 @@
 ^figs$
 ^lsoa\.adj$
 ^LICENSE\.md$
+^readings$
+^spatio_temporal_test\.RData$

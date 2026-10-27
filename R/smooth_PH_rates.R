@@ -52,15 +52,24 @@ smooth_ph_rates = function(material_list = NULL,
     stop("No area code column found in inla_dat (expected LSOA21CD or WD21CD).")
   }
 
+
+  #-----------------------------------------------------
+  #zero population -> 1 so log() is finite (smith et al. 2025)
+  #-----------------------------------------------------
+  if (anyNA(material_list$inla_dat$localpop)) stop("Missing population in inla_dat. Check the population file.")
+  material_list$inla_dat = material_list$inla_dat %>% mutate(pop_offset = ifelse(localpop == 0, 1, localpop))
+
   # ------------------------------------------------------------
-  # Specify the INLA model
-  # Outcome: ward-age-specific under-75 ALD death counts
-  # Likelihood: Poisson with log(population) offset (models an underlying rate)
+  # Specify the INLA age-space model
+  # Outcome: event counts (deaths or admissions) by area x age band
+  # Likelihood: Poisson with log(population) offset (models an underlying rate);
+  # xPoisson when counts are fractional after LSOA reallocation
   # Random effects:
-  # (1) Age effect: AR(1) structure across ordered age groups (smooth age pattern)
-  # (2) Spatial effect: BYM2 across wards (structured + unstructured components)
-  # (3) Space-age interaction: ward BYM2 effect allowed to vary by age, with an AR(1)
-  # correlation across age groups (via group = Age_index)
+  # (1) Age effect: AR(1) across ordered age bands (smooth age pattern)
+  # (2) Space and space-age effect: one BYM2 term across areas (structured +
+  # unstructured components), grouped by age band (group = Age_index) with
+  # an AR(1) correlation across age bands, so each age band has its own
+  # spatial pattern and neighbouring age bands have similar patterns
   # Priors:
   # Penalised complexity (PC) priors for precisions and correlations
   # ------------------------------------------------------------
@@ -108,7 +117,7 @@ smooth_ph_rates = function(material_list = NULL,
   fit = INLA::inla(
     formula,
     family = fam,
-    offset = log(localpop),
+    offset = log(pop_offset),
     data = material_list$inla_dat,
     num.threads = threads,
     control.predictor = list(compute = TRUE),
@@ -130,7 +139,7 @@ smooth_ph_rates = function(material_list = NULL,
   idx      = grep("^Predictor", rownames(draws[[1]]$latent))
   rate_mat = sapply(draws, function(d) exp(d$latent[idx]))
 
-  std_mat = rate_mat / material_list$inla_dat$localpop * material_list$inla_dat$standard_pop
+  std_mat = rate_mat / material_list$inla_dat$pop_offset * material_list$inla_dat$standard_pop
 
   #---------------------------------------------------------
   #sum age bands within each draw, by area
@@ -170,7 +179,7 @@ smooth_ph_rates = function(material_list = NULL,
   age_f = factor(material_list$inla_dat$AgeGroup, levels = age_lv)
   B     = sparse.model.matrix(~ 0 + age_f)
 
-  exp_deaths_a = as.matrix(crossprod(B, rate_mat))            # rate_mat is already counts
+  exp_deaths_a = as.matrix(crossprod(B, rate_mat / material_list$inla_dat$pop_offset * material_list$inla_dat$localpop))          # rate_mat is already counts
   pop_a        = as.numeric(crossprod(B, material_list$inla_dat$localpop))
   city_rate_a  = exp_deaths_a / pop_a
 

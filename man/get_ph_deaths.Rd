@@ -8,6 +8,7 @@ get_ph_deaths(
   financial_year = "2025/2026",
   diagnostic_code = NULL,
   age = NULL,
+  age_bands = "5yr",
   geo_level = "lsoa21",
   server = "SVWVSQ016\\\\SVWVSQ016",
   database = "PH_Deaths",
@@ -24,14 +25,24 @@ cause, e.g. c("I2\%", "I6\%"). \code{NULL} returns all causes.}
 \item{age}{One comparison such as "<75", or two bounds such as c("15", "64").
 \code{NULL} returns all ages.}
 
+\item{age_bands}{Age band preset, built by summing 5-year bands:
+\code{"5yr"} (default); \code{"10yr"}; \code{"under40_merged"} (0-39 as one band, then
+5-year bands, for causes concentrated in older ages such as CVD, cancer
+and ALD); or \code{"under20_over65_merged"} (0-19 and 65+ as single bands,
+5-year bands between, for mid-life causes such as drugs and suicide).
+A band at the edge of the \code{age} filter is shortened to fit, e.g. 65-74
+for "<75".}
+
 \item{geo_level}{Geography to model at: "lsoa21" or "ward".}
 
 \item{server, database, driver}{Connection details.}
 }
 \value{
 A list with \code{death_data} (one row per death), \code{inla_dat} (one row per
-area and age band), \code{g} (the INLA adjacency graph), \code{map} (the boundaries)
-and \code{area_col} (the name of the area code column in \code{inla_dat}).
+area and age band, years pooled), \code{inla_dat_st} (one row per area, age band
+and year), \code{g} (the INLA adjacency graph), \code{map} (the boundaries),
+\code{area_col} (the name of the area code column in \code{inla_dat}), \code{period}
+and \code{range} (labels for the years covered).
 }
 \description{
 Rows are selected on the warehouse's own \code{FinYear} field, which is derived

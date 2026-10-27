@@ -5,40 +5,57 @@ export(get_ph_hes)
 export(plot_exceedance_prob)
 export(plot_smoothed_map)
 export(smooth_ph_rates)
-importFrom(Matrix,crossprod)
-importFrom(Matrix,sparse.model.matrix)
-importFrom(dplyr,arrange)
-importFrom(dplyr,between)
-importFrom(dplyr,bind_rows)
-importFrom(dplyr,case_when)
-importFrom(dplyr,collect)
-importFrom(dplyr,distinct)
-importFrom(dplyr,filter)
-importFrom(dplyr,group_by)
-importFrom(dplyr,left_join)
-importFrom(dplyr,mutate)
-importFrom(dplyr,n)
-importFrom(dplyr,pull)
-importFrom(dplyr,rename)
-importFrom(dplyr,select)
-importFrom(dplyr,summarise)
-importFrom(dplyr,tbl)
+export(smooth_ph_rates_st)
+importFrom(Matrix,
+  crossprod,
+  sparse.model.matrix
+)
+importFrom(dplyr,
+  across,
+  all_of,
+  arrange,
+  between,
+  bind_rows,
+  case_when,
+  collect,
+  distinct,
+  filter,
+  group_by,
+  if_else,
+  left_join,
+  mutate,
+  n,
+  pull,
+  rename,
+  select,
+  summarise,
+  tbl,
+  transmute
+)
 importFrom(magrittr,"%>%")
-importFrom(rlang,":=")
-importFrom(rlang,.data)
+importFrom(rlang,
+  ":=",
+  .data
+)
 importFrom(sf,st_drop_geometry)
-importFrom(spdep,nb2mat)
-importFrom(spdep,poly2nb)
+importFrom(spdep,
+  nb2mat,
+  poly2nb
+)
 importFrom(stats,quantile)
 importFrom(tibble,tibble)
-importFrom(tmap,tm_compass)
-importFrom(tmap,tm_credits)
-importFrom(tmap,tm_layout)
-importFrom(tmap,tm_legend)
-importFrom(tmap,tm_polygons)
-importFrom(tmap,tm_pos_in)
-importFrom(tmap,tm_scale_categorical)
-importFrom(tmap,tm_scale_intervals)
-importFrom(tmap,tm_shape)
-importFrom(tmap,tm_title)
-importFrom(tmap,tm_title_in)
+importFrom(tmap,
+  tm_compass,
+  tm_credits,
+  tm_facets,
+  tm_layout,
+  tm_legend,
+  tm_polygons,
+  tm_pos_in,
+  tm_pos_out,
+  tm_scale_categorical,
+  tm_scale_intervals,
+  tm_shape,
+  tm_title,
+  tm_title_in
+)

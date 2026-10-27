@@ -33,7 +33,7 @@ smoothed_tmap_base = function(final_map_data,
       fill.legend = tm_legend(title = "per 100,000", frame = FALSE, group_id = "legend"),
       col         = boundary_colour
     ) +
-    #------------------------------------------------------
+  #------------------------------------------------------
   #legend positions
   #------------------------------------------------------
   tm_layout(

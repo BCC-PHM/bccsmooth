@@ -12,11 +12,20 @@
 #'   cause, e.g. c("I2%", "I6%"). `NULL` returns all causes.
 #' @param age One comparison such as "<75", or two bounds such as c("15", "64").
 #'   `NULL` returns all ages.
+#' @param age_bands Age band preset, built by summing 5-year bands:
+#'   `"5yr"` (default); `"10yr"`; `"under40_merged"` (0-39 as one band, then
+#'   5-year bands, for causes concentrated in older ages such as CVD, cancer
+#'   and ALD); or `"under20_over65_merged"` (0-19 and 65+ as single bands,
+#'   5-year bands between, for mid-life causes such as drugs and suicide).
+#'   A band at the edge of the `age` filter is shortened to fit, e.g. 65-74
+#'   for "<75".
 #' @param geo_level Geography to model at: "lsoa21" or "ward".
 #' @param server,database,driver Connection details.
 #' @returns A list with `death_data` (one row per death), `inla_dat` (one row per
-#'   area and age band), `g` (the INLA adjacency graph), `map` (the boundaries)
-#'   and `area_col` (the name of the area code column in `inla_dat`).
+#'   area and age band, years pooled), `inla_dat_st` (one row per area, age band
+#'   and year), `g` (the INLA adjacency graph), `map` (the boundaries),
+#'   `area_col` (the name of the area code column in `inla_dat`), `period`
+#'   and `range` (labels for the years covered).
 #' @importFrom dplyr tbl select filter mutate between case_when group_by summarise rename left_join distinct pull n
 #' @importFrom tibble tibble
 #' @importFrom sf st_drop_geometry
@@ -27,6 +36,7 @@ get_ph_deaths = function(
     financial_year  = "2025/2026",
     diagnostic_code = NULL,
     age             = NULL,
+    age_bands       = "5yr",
     geo_level       = "lsoa21",
     server          = "SVWVSQ016\\SVWVSQ016",
     database        = "PH_Deaths",
@@ -199,6 +209,52 @@ get_ph_deaths = function(
     }
   }
 
+  #===========================================================
+  #age band preset, built from the 5-year bands
+  #===========================================================
+  band_options = c("5yr", "10yr", "under40_merged", "under20_over65_merged")
+
+  if (length(age_bands) != 1 || !age_bands %in% band_options) {
+    stop("Unexpected age_bands. Given '", toString(age_bands),
+         "'. Available values are ", toString(band_options), ".")
+  }
+
+  age_breaks = switch(age_bands,
+                      "5yr"                   = NULL,
+                      "10yr"                  = c(0, seq(10, 90, 10)),
+                      "under40_merged"        = c(0, seq(40, 90, 5)),
+                      "under20_over65_merged" = c(0, seq(20, 65, 5)))
+
+  band_map = NULL
+
+  if (!is.null(age_breaks)) {
+    base_lower = c(0, 1, seq(5, 90, 5))
+
+    #-----------------------------------------------------
+    #add the age filter's edges so no band straddles it
+    #-----------------------------------------------------
+    first_band = match(age_filter[1], age_levels)
+    last_band  = match(age_filter[length(age_filter)], age_levels)
+    edges      = c(base_lower[first_band], base_lower[last_band + 1])
+    age_breaks = sort(unique(c(age_breaks, edges[!is.na(edges)])))
+
+    upper       = c(age_breaks[-1] - 1, Inf)
+    band_labels = ifelse(is.infinite(upper), paste0(age_breaks, "+"), paste0(age_breaks, "-", upper))
+    band_labels[age_breaks == 0 & upper == 0] = "UNDER 1"
+
+    band_map = tibble(age_band = age_levels,
+                      new_band = factor(band_labels[findInterval(base_lower, age_breaks)], levels = band_labels))
+
+
+    #-----------------------------------------------------
+    #still need two bands to standardise
+    #-----------------------------------------------------
+    if (dplyr::n_distinct(band_map$new_band[band_map$age_band %in% age_filter]) < 2) {
+      stop("Age band preset '", age_bands, "' leaves fewer than two bands. Age standardisation needs at least two.")
+    }
+  }
+
+
   #---------------------------------------------------------
   #query
   #---------------------------------------------------------
@@ -230,7 +286,7 @@ get_ph_deaths = function(
   out = out %>%
     dplyr::collect() %>%
     dplyr::mutate(
-      AGE        = as.numeric(AGE),
+      AGE        = as.numeric(AgeInYears),
       death_date = as.Date(sprintf("%08d", as.integer(`DATE OF DEATH OF DECEASED`)), "%d%m%Y")
     )
 
@@ -368,8 +424,8 @@ get_ph_deaths = function(
     #-----------------------------------------------------
     #every area must land on the graph
     #-----------------------------------------------------
-    if (anyNA(inla_dat$new_id)) {
-      stop(sum(is.na(inla_dat$new_id)), " rows have no matching area in the boundary data.")
+    if (anyNA(inla_dat$new_id) || anyNA(inla_dat_st$new_id)) {
+      stop(sum(is.na(inla_dat_st$new_id)), " rows have no matching area in the boundary data.")
     }
 
     # ------------------------------------------------------------
@@ -516,6 +572,51 @@ get_ph_deaths = function(
       filter(AgeGroup %in% age_filter)
   }
 
+
+  #===========================================================
+  #restrict ages, then collapse into the preset bands
+  #===========================================================
+
+  tidy_ages = function(dat, keys) {
+    dat = dat %>% filter(AgeGroup %in% age_filter)
+
+    if (!is.null(band_map)) {
+      dat = dat %>%
+        left_join(band_map, by = c("AgeGroup" = "age_band")) %>%
+        group_by(dplyr::across(dplyr::all_of(c(keys, "new_band")))) %>%
+        summarise(localpop     = sum(localpop),
+                  death        = sum(death),
+                  standard_pop = sum(standard_pop), .groups = "drop") %>%
+        rename(AgeGroup = new_band)
+    }
+
+    #-----------------------------------------------------
+    #renumber so Age_index always runs 1..n in age order
+    #-----------------------------------------------------
+    band_levels = if (is.null(band_map)) age_levels else levels(band_map$new_band)
+
+    dat %>%
+      mutate(AgeGroup  = droplevels(factor(AgeGroup, levels = band_levels)),
+             Age_index = as.integer(AgeGroup),
+             AgeGroup  = as.character(AgeGroup))
+  }
+
+  inla_dat    = tidy_ages(inla_dat, c(area_col, "new_id"))
+  inla_dat_st = tidy_ages(inla_dat_st, c(area_col, "new_id", "fin_year", "time_id"))
+
+  #-----------------------------------------------------
+  #flag bands holding under 1% of deaths
+  #-----------------------------------------------------
+  band_share = inla_dat %>%
+    group_by(AgeGroup) %>%
+    summarise(share = sum(death) / sum(inla_dat$death), .groups = "drop")
+
+  if (any(band_share$share < 0.01)) {
+    message("Age band(s) with under 1% of deaths: ", toString(band_share$AgeGroup[band_share$share < 0.01]),
+            ". Consider age_bands = \"under40_merged\" or \"under20_over65_merged\".")
+  }
+
+
   #---------------------------------------------------------
   #period label, e.g. "2023/24-2025/26"
   #---------------------------------------------------------
@@ -530,12 +631,13 @@ get_ph_deaths = function(
 
   range = paste0(length(financial_year), " year range")
 
-  return(list(death_data = out,
-              inla_dat = inla_dat,
+  return(list(death_data  = out,
+              inla_dat    = inla_dat,
               inla_dat_st = inla_dat_st,
-              g = g,
-              map = map,
-              area_col = area_col,
-              period = period,
-              range = range ))
+              g           = g,
+              map         = map,
+              area_col    = area_col,
+              period      = period,
+              range       = range,
+              age_bands   = age_bands))
 }

@@ -26,14 +26,13 @@ ward21_boundaries = read_sf("data-raw/boundaries-wards-2022-birmingham.geojson")
 #------------------------------------------------------
 #lsoa 2021: Birmingham only
 #------------------------------------------------------
-lsoa21pop = readRDS("data-raw/lsoa21pop.rds") %>%
-  filter(LAD21NM == "Birmingham") %>%
+lsoa21pop = readRDS("data-raw/lsoa21pop_2001_2024_bham.rds") %>%
   select(LSOA21CD, year, fin_year, age_band, count, standard_pop)
 
 #------------------------------------------------------
 #ward 2021: only the 69 current wards
 #------------------------------------------------------
-ward21pop = readRDS("data-raw/ward21pop_2011_2022.rds") %>%
+ward21pop = readRDS("data-raw/ward21pop_2001_2024_bham.rds") %>%
   filter(WD21CD %in% ward21_boundaries$WD21CD)
 
 #------------------------------------------------------

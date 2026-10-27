@@ -24,3 +24,6 @@ lsoa.adj
 # build artefacts
 *.tar.gz
 *.Rcheck/
+readings/
+figs/
+*.RData

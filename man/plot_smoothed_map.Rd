@@ -16,13 +16,15 @@ plot_smoothed_map(
   legend_text_size = 0.6,
   legend_title_size = 0.7,
   legend_position = tm_pos_in(pos.h = 0.02, pos.v = 1.01),
-  boundary_colour = "grey70"
+  boundary_colour = "grey70",
+  fn_col = 7,
+  fn_row = 4
 )
 }
 \arguments{
-\item{final_map_data}{An sf object: the \code{final_result} returned by
-\code{\link[=smooth_ph_rates]{smooth_ph_rates()}}, carrying geometry, the \code{asr_} columns and the
-\code{rp_} columns.}
+\item{final_map_data}{The full list returned by \code{\link[=smooth_ph_rates]{smooth_ph_rates()}} or
+\code{\link[=smooth_ph_rates_st]{smooth_ph_rates_st()}} (must contain \code{fit}, \code{final_result}, \code{map},
+\code{area_col} and \code{ex_cols}). Its \code{final_result} sf object is mapped.}
 
 \item{credible_interval}{One of \code{"80"}, \code{"90"} or \code{"95"} (the \verb{\%} is
 optional). \code{NULL} uses 95\%.}
@@ -30,9 +32,10 @@ optional). \code{NULL} uses 95\%.}
 \item{credible_interval_map}{\code{TRUE} returns a list of three maps: the
 central estimate and both bounds.}
 
-\item{fill_value}{Which rate to map: \code{"median"} or \code{"mean"}.}
+\item{fill_value}{Which rate to map: \code{"median"} (default) or \code{"mean"}.
+\code{"asr_median"} and \code{"asr_mean"} are also accepted; case is ignored.}
 
-\item{fill_title}{Map title.}
+\item{fill_title}{Map title. \code{NULL} builds one from the data's \code{period}.}
 
 \item{title_in}{Note drawn inside the map frame. Left empty, a sentence
 describing the reliability threshold is used.}
@@ -44,14 +47,25 @@ describing the reliability threshold is used.}
 \item{legend_text_size, legend_title_size}{Relative text sizes.}
 
 \item{boundary_colour}{Colour of the polygon outlines.}
+
+\item{fn_col, fn_row}{Number of facet columns and rows when mapping
+age-space-time output by financial year. Ignored otherwise.}
 }
 \value{
-A \code{tmap} object, or a list of three when \code{credible_interval_map}
-is \code{TRUE}.
+A \code{tmap} object (faceted by \code{fin_year} for age-space-time
+output), or, when \code{credible_interval_map} is \code{TRUE}, a named list of
+three: \code{asr_map}, \code{asr_map_LL} and \code{asr_map_UL}.
 }
 \description{
-Draws a choropleth of the smoothed age-standardised rate, blanking areas
-whose relative precision falls below 1 on the chosen credible interval.
-Optionally returns the central estimate alongside its lower and upper
-bounds as a three-map list.
+Draws a choropleth of the smoothed age-standardised rate and blanks areas
+flagged as unreliable on the chosen credible interval. Accepts output from
+either \code{\link[=smooth_ph_rates]{smooth_ph_rates()}} or \code{\link[=smooth_ph_rates_st]{smooth_ph_rates_st()}}. For age-space-time
+output (a \code{fin_year} column is present), the map is faceted by financial
+year. Optionally returns the central estimate alongside its lower and
+upper bounds as a three-map list.
+}
+\details{
+Unreliable areas are those whose \verb{reliability_<ci>} value is \code{NA} or
+\code{"Unreliable"}. Every \code{asr_} column is set to \code{NA} for them, and they
+appear in the legend as "Unreliable".
 }
