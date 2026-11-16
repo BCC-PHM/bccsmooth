@@ -245,13 +245,17 @@ get_ph_hes = function(
     }
 
     dx_script = paste0(
-      rep(dx_cols, each = length(primary_diagnostic_code)),
-      " %LIKE% ",
-      rep(
-        encodeString(primary_diagnostic_code, quote = '"'),
-        times = length(dx_cols)
+      "CASE WHEN (",
+      paste0(
+        rep(as.character(DBI::dbQuoteIdentifier(con, dx_cols)), each = length(primary_diagnostic_code)),
+        " LIKE ",
+        rep(
+          as.character(DBI::dbQuoteString(con, primary_diagnostic_code)),
+          times = length(dx_cols)
+        ),
+        collapse = " OR "
       ),
-      collapse = " | "
+      ") THEN 1 ELSE 0 END"
     )
   }
 
@@ -261,7 +265,7 @@ get_ph_hes = function(
   #---------------------------------------------------------
   out = lapply(seq_along(table_name), function(i) {
     q = dplyr::tbl(con, table_name[i]) %>%
-      dplyr::select("ACTIVAGE", "ADMIAGE", "ADMIDATE", "ADMIMETH", "BEDYEAR", "CLASSPAT", "CSNUM",
+      dplyr::select("ACTIVAGE", "ADMIAGE", "ADMIDATE", "ADMIMETH", "ETHNOS", "BEDYEAR", "CLASSPAT", "CSNUM",
                     "DIAG_01", "DIAG_02", "DIAG_03", "DIAG_04", "DIAG_05", "DIAG_06", "DIAG_07",
                     "DIAG_08", "DIAG_09", "DIAG_10", "DIAG_11", "DIAG_12", "DIAG_13", "DIAG_14",
                     "DIAG_15", "DIAG_16", "DIAG_17", "DIAG_18", "DIAG_19", "DIAG_20",
@@ -276,7 +280,7 @@ get_ph_hes = function(
                     CLASSPAT     %in% !!classpat) %>%
       dplyr::mutate(age_yrs = ifelse(ADMIAGE >= 7000, 0L, ADMIAGE))
 
-    if (!is.null(dx_script))  q = dplyr::filter(q, !!rlang::parse_expr(dx_script))
+    if (!is.null(dx_script))  q = dplyr::filter(q, dplyr::sql(dx_script))
     if (!is.null(age_script)) q = dplyr::filter(q, !!rlang::parse_expr(age_script))
 
     q %>%
@@ -398,16 +402,39 @@ get_ph_hes = function(
              Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
 
     #-----------------------------------------------------
+    #construct inla spatio-temporal indexing variables
+    #-----------------------------------------------------
+    inla_dat_st = year_map %>%
+      left_join(popestimate, by = c("pop_fin_year" = "fin_year"),
+                relationship = "many-to-many") %>%
+      left_join(out_filtered, by = c("LSOA21CD", "age_band" = "AgeGroup", "fin_year")) %>%
+      mutate(admission = ifelse(is.na(admission), 0, admission)) %>%
+      group_by(LSOA21CD, age_band, fin_year) %>%
+      summarise(localpop     = sum(count),
+                admission    = sum(admission),
+                standard_pop = dplyr::first(standard_pop), .groups = "drop") %>%
+      rename(AgeGroup = age_band) %>%
+      left_join(map %>% st_drop_geometry() %>% select(LSOA21CD, new_id), by = "LSOA21CD") %>%
+      mutate(new_id    = as.integer(new_id),
+             Age_index = as.integer(factor(AgeGroup, levels = age_levels)),
+             time_id   = as.integer(factor(fin_year)))
+
+
+
+    #-----------------------------------------------------
     #every area must land on the graph
     #-----------------------------------------------------
-    if (anyNA(inla_dat$new_id)) {
-      stop(sum(is.na(inla_dat$new_id)), " rows have no matching area in the boundary data.")
+    if (anyNA(inla_dat$new_id) || anyNA(inla_dat_st$new_id)) {
+      stop(sum(is.na(inla_dat_st$new_id)), " rows have no matching area in the boundary data.")
     }
 
-    # ------------------------------------------------------------
-    # Restrict to the requested age bands
-    # ------------------------------------------------------------
+    #-----------------------------------------------------
+    #restrict to the requested age bands
+    #-----------------------------------------------------
     inla_dat = inla_dat %>%
+      filter(AgeGroup %in% age_filter)
+
+    inla_dat_st = inla_dat_st %>%
       filter(AgeGroup %in% age_filter)
 
 
@@ -419,7 +446,21 @@ get_ph_hes = function(
 
     #===============================================================
     #process admission data
+    #2016/17-2017/18 use the old 40 wards: reassign to
+    #2021 wards through the lsoa11 best-fit lookup
     #===============================================================
+    old_ward_years = c("2016/2017", "2017/2018")
+
+    if (any(old_ward_years %in% out$FinYear)) {
+      out = out %>%
+        left_join(lsoa11_ward21_bf_lookup, by = c("LSOA11" = "LSOA11CD"), relationship = "many-to-one") %>%
+        mutate(CURRWARD_ONS = if_else(FinYear %in% old_ward_years, bf_ward, CURRWARD_ONS)) %>%
+        select(-bf_ward)
+
+      n_nomatch = sum(out$FinYear %in% old_ward_years & is.na(out$CURRWARD_ONS))
+      if (n_nomatch > 0) warning(n_nomatch, " admissions in the old-ward years have no best-fit 2021 ward.")
+    }
+
     out_filtered = out %>%
       mutate(AgeGroup = case_when(
         age_yrs <= 0                  ~ "UNDER 1",
@@ -447,6 +488,7 @@ get_ph_hes = function(
       group_by(CURRWARD_ONS, AgeGroup, fin_year = to_pop_finyear(FinYear)) %>%
       summarise(admission = n(), .groups = "drop") %>%
       rename(WD21CD = CURRWARD_ONS)
+
 
 
     #-----------------------------------------------------
@@ -510,13 +552,38 @@ get_ph_hes = function(
              Age_index = as.integer(factor(AgeGroup, levels = age_levels)))
 
     #-----------------------------------------------------
+    #construct inla spatio-temporal indexing variables
+    #-----------------------------------------------------
+    inla_dat_st = year_map %>%
+      left_join(popestimate, by = c("pop_fin_year" = "fin_year"),
+                relationship = "many-to-many") %>%
+      left_join(out_filtered, by = c("WD21CD", "age_band" = "AgeGroup", "fin_year")) %>%
+      mutate(admission = ifelse(is.na(admission), 0, admission)) %>%
+      group_by(WD21CD, age_band, fin_year) %>%
+      summarise(localpop     = sum(count),
+                admission    = sum(admission),
+                standard_pop = dplyr::first(standard_pop), .groups = "drop") %>%
+      rename(AgeGroup = age_band) %>%
+      left_join(map %>% st_drop_geometry() %>% select(WD21CD, new_id), by = "WD21CD") %>%
+      mutate(new_id    = as.integer(new_id),
+             Age_index = as.integer(factor(AgeGroup, levels = age_levels)),
+             time_id   = as.integer(factor(fin_year)))
+
+
+    #-----------------------------------------------------
     #every area must land on the graph
     #-----------------------------------------------------
-    if (anyNA(inla_dat$new_id)) {
-      stop(sum(is.na(inla_dat$new_id)), " rows have no matching area in the boundary data.")
+    if (anyNA(inla_dat$new_id) || anyNA(inla_dat_st$new_id)) {
+      stop(sum(is.na(inla_dat_st$new_id)), " rows have no matching area in the boundary data.")
     }
 
+    #-----------------------------------------------------
+    #restrict to the requested age bands
+    #-----------------------------------------------------
     inla_dat = inla_dat %>%
+      filter(AgeGroup %in% age_filter)
+
+    inla_dat_st = inla_dat_st %>%
       filter(AgeGroup %in% age_filter)
   }
 
@@ -537,12 +604,14 @@ get_ph_hes = function(
 
 
   return(list(admission_data = out,
-              inla_dat = inla_dat,
-              g = g,
-              map = map,
-              area_col = area_col,
-              period = period,
-              range = range ))
+              inla_dat       = inla_dat,
+              inla_dat_st    = inla_dat_st,
+              g              = g,
+              map            = map,
+              area_col       = area_col,
+              period         = period,
+              range          = range,
+              age_bands      = age_bands))
 
 
 }

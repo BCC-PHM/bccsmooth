@@ -2,44 +2,17 @@
 
 Created by: [Chung Au-Yeung](https://github.com/ChungHim5d) </br> Population Health Management</br> Birmingham City Council
 
-### What's new in 0.1.4 (27/10/2026)
-
-- **Age-space-time model:** new `smooth_ph_rates_st()` fits the Goicoa et al. (2016) age-space-time model (Leroux spatial term, RW1 age and time, space-age, space-time and age-time interactions). This model now only works on data extracted from `get_ph_deaths()` and it is recommended to use data from 2001/02 to 2025/26 at ward level for age-space-time modelling.
-
-- **Age bands:** `get_ph_deaths()` gains an `age_bands` argument with presets `"5yr"` (default), `"10yr"`, `"under40_merged"` and `"under20_over65_merged"`, and now also returns `inla_dat_st` (one row per area, age band and year) for `smooth_ph_rates_st()`.
-
-- **Mapping the temporal output:** `plot_smoothed_map()` and `plot_exceedance_prob()` accept output from `smooth_ph_rates_st()` and facet the map by financial year.
-
-- **Zero population:** in both smoothing functions, area-age cells with a population of zero are given 1, so the model can still estimate a smoothed rate for them (following Smith et al., 2025).
-
-#### Bug fixes
-
-- **Character age:** `get_ph_deaths()` received age from the warehouse as text, so age bands were assigned by comparing text rather than numbers (for example, "9" counts as greater than "75" when compared as text). Deaths could therefore land in the wrong age band. Age is now converted to a number before banding.
-
-- **Infant deaths:** `get_ph_deaths()` built age bands from `AGE`, which records age in months for deaths under one year. Infant deaths were therefore placed in the 1-4, 5-9 or 10-14 bands instead of "UNDER 1". Age bands are now built from `AgeInYears`, which correctly distribute infant deaths.
-
-### What's new in 0.1.3 (20/10/2026)
-
-- **Hospital admissions:** new `get_ph_hes()` extracts inpatient admissions from the `PH_HES`, with similar arguments and output structure as `get_ph_deaths()`.
-- **Renamed:** `smooth_ph_deaths()` is now `smooth_ph_rates()`, as it smooths both deaths and admissions.
-- **Output column:** `final_result` now has `local_death` or `local_admission`, depending on the source.
-
-### Possible future updates:
-
-- A universal smoothing function for user-supplied counts and denominators, so the package can be used with data from outside the warehouse
-- Prevalence smoothing
-
 ## Introduction
 
 ### What is bccsmooth?
 
 The bccsmooth is an R package designed to support analysts at Birmingham City Council in producing **small-area health estimates** using Bayesian spatial smoothing models.
 
-The underlying models are built on the Besag-York-Mollié 2 (BYM2) framework implemented via R-INLA, and account for spatial autocorrelation between neighbouring areas. It implies that areas with limited data or even no data borrow strengths from their neighbours rather than relying solely on local counts.
+The underlying models are built on the Besag-York-Mollié 2 (BYM2) framework and the Leroux conditional autoregressive (LCAR) implemented via R-INLA, and account for spatial autocorrelation between neighbouring areas. It implies that areas with limited data or even no data borrow strengths from their neighbours rather than relying solely on local counts.
 
 ### Development status
 
-**bccsmooth is in early development (version 0.1.3) and is not yet a general-purpose tool.**
+**bccsmooth is in early development (version 0.1.5) and is not yet a general-purpose tool.**
 
 At present it supports two workflows for analysts to easily extract death and inpatient data from BCC SQL server and smooth the rates at either LSOA or Ward level. The current package also produces publication-ready maps.
 
@@ -121,7 +94,7 @@ tmap_save(test_exceedance_prob_map_plot,
 
 ![](figs/test_exceedance_prob_map_plot.png)
 
-**6. Extract and smooth HES inpatient admissions.** `get_ph_hes()` connects to the `PH_HES` warehouse, so it also needs access to the council network. `age`, `geo_level` and `financial_year` work exactly as in step 2. HES data are available from 2016/2017 onwards; if a requested year is missing, the function stops and lists the years that are available.
+**6. Extract and smooth HES inpatient admissions.** `get_ph_hes()` connects to the `PH_HES` warehouse, so it also needs access to the council network. `age`, `geo_level` and `financial_year` work exactly as in step 2. HES data are available from 2016/2017 onwards; if a requested year is missing, the function stops and lists the years that are available. At ward level, admissions in 2016/17 and 2017/18 are reassigned from Birmingham's old 40 wards to the 2021 wards, so all years share the same boundaries. `age_bands` works as in `get_ph_deaths()`, and the output includes `inla_dat_st` for `smooth_ph_rates_st()`.
 
 `primary_diagnostic_code` takes ICD-10 patterns matched against the primary diagnosis. Some Fingertips indicators count an admission when the code appears in **any** diagnosis position, please set `secondary_diagnostic_code = TRUE` so all 20 diagnosis positions are checked.
 
@@ -147,6 +120,67 @@ res_hes = smooth_ph_rates(hes_ward, post_sample = 1000)
 ```
 
 The result can be passed to `plot_smoothed_map()` and `plot_exceedance_prob()` exactly as in steps 4 and 5.
+
+### What's new in 0.1.5 (16/11/2026)
+
+- **Spatio-temporal HES data:** `get_ph_hes()` now also returns `inla_dat_st` (one row per area, age band and year), the same structure as `get_ph_deaths()`, so admissions can be passed to `smooth_ph_rates_st()`.
+
+- **Age bands for admissions:** `get_ph_hes()` gains the `age_bands` argument with the same presets as `get_ph_deaths()`: `"5yr"` (default), `"10yr"`, `"under40_merged"` and `"under20_over65_merged"`.
+
+#### Bug fixes
+
+- **Long diagnosis code lists ([#3](https://github.com/BCC-PHM/bccsmooth/issues/3)):** `get_ph_hes()` failed when `primary_diagnostic_code` was long and `secondary_diagnostic_code = TRUE` (for example 111 patterns across 20 diagnosis columns, 2,220 conditions), because the filter was built as one deeply nested R expression that R could not parse before the query was sent. The filter is now built as a single SQL string. `get_ph_deaths()` uses the same approach for `diagnostic_code`.
+
+- **Old Birmingham wards in HES:** admissions in 2016/17 and 2017/18 are coded to Birmingham's old 40 wards, which do not match the 2021 wards used for the population denominators. With `geo_level = "ward"`, these admissions are now reassigned to the 2021 wards through a best-fit lookup from the 2011 LSOA, so every year is on the same 69 wards. Each 2011 LSOA is assigned wholly to one ward, so admissions close to a ward boundary can sit in the neighbouring ward in these two years.
+
+### What's new in 0.1.4 (27/10/2026)
+
+- **Age-space-time model:** new `smooth_ph_rates_st()` fits the Goicoa et al. (2016) age-space-time model (Leroux spatial term, RW1 age and time, space-age, space-time and age-time interactions). This model now only works on data extracted from `get_ph_deaths()` and it is recommended to use data from 2001/02 to 2025/26 at ward level for age-space-time modelling.
+
+- **Age bands:** `get_ph_deaths()` gains an `age_bands` argument with presets `"5yr"` (default), `"10yr"`, `"under40_merged"` and `"under20_over65_merged"`, and now also returns `inla_dat_st` (one row per area, age band and year) for `smooth_ph_rates_st()`.
+
+- **Mapping the temporal output:** `plot_smoothed_map()` and `plot_exceedance_prob()` accept output from `smooth_ph_rates_st()` and facet the map by financial year.
+
+- **Zero population:** in both smoothing functions, area-age cells with a population of zero are given 1, so the model can still estimate a smoothed rate for them (following Smith et al., 2025).
+
+#### Bug fixes
+
+- **Character age:** `get_ph_deaths()` received age from the warehouse as text, so age bands were assigned by comparing text rather than numbers (for example, "9" counts as greater than "75" when compared as text). Deaths could therefore land in the wrong age band. Age is now converted to a number before banding.
+
+- **Infant deaths:** `get_ph_deaths()` built age bands from `AGE`, which records age in months for deaths under one year. Infant deaths were therefore placed in the 1-4, 5-9 or 10-14 bands instead of "UNDER 1". Age bands are now built from `AgeInYears`, which correctly distribute infant deaths.
+
+### What's new in 0.1.3 (20/10/2026)
+
+- **Hospital admissions:** new `get_ph_hes()` extracts inpatient admissions from the `PH_HES`, with similar arguments and output structure as `get_ph_deaths()`.
+- **Renamed:** `smooth_ph_deaths()` is now `smooth_ph_rates()`, as it smooths both deaths and admissions.
+- **Output column:** `final_result` now has `local_death` or `local_admission`, depending on the source.
+
+### What's new in 0.1.2
+
+- **Period labels:** `get_ph_deaths()` returns `period` and `range` (labels for the years covered), and `smooth_ph_deaths()` carries `period` into `final_result`.
+
+- **Progress messages:** `smooth_ph_deaths()` gains a `verbose` argument, and returns `ex_cols` (the colour scale used by `plot_exceedance_prob()`).
+
+### What's new in 0.1.1
+
+- **Reliability labels:** `final_result` gains `reliability_80`, `reliability_90` and `reliability_95`. An area is labelled "reliable at X% CrI" when its relative precision at that level is above 1, otherwise "Unreliable". `plot_smoothed_map()` takes a `credible_interval` argument (`"95"` by default, `"90"` or `"80"`) and leaves areas that are not reliable blank.
+
+### What's new in 0.1.0
+
+- **First release:** `get_ph_deaths()`, `smooth_ph_deaths()`, `plot_smoothed_map()` and `plot_exceedance_prob()`.
+
+- **Smoothing model:** an age-grouped BYM2 model fitted with R-INLA at 2021 LSOA or 2021 ward level, returning smoothed age-standardised rates with credible intervals, relative precision and exceedance probabilities.
+
+- **Credible intervals:** built from posterior draws, with age bands aggregated within each draw before taking quantiles, rather than summing quantiles across age bands.
+
+- **Built-in data:** boundaries, population denominators and standard population weights ship with the package as lazy-loaded data, so no file paths or local data are needed.
+
+- **Deaths extraction:** `get_ph_deaths()` reads death registrations from the `PH_Deaths` warehouse, reallocates deaths coded to 2011 LSOAs onto 2021 LSOAs using area-intersection weights, and pools multiple financial years into person-years.
+
+### Possible future updates:
+
+- A universal smoothing function for user-supplied counts and denominators, so the package can be used with data from outside the warehouse
+- Prevalence smoothing
 
 ### References
 

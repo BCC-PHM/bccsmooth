@@ -274,10 +274,22 @@ get_ph_deaths = function(
     dplyr::filter(FinYear %in% financial_year) %>%
     dplyr::filter(`LOCAL AUTHORITY CODE OF USUAL RESIDENCE OF DECEASED` == "E08000025")
 
+  #---------------------------------------------------------
+  #diagnosis: built as one SQL string, so a long code list
+  #never goes through R's parser (as in get_ph_hes)
+  #---------------------------------------------------------
   if (!is.null(diagnostic_code)) {
-    dx = paste0("`UNDERLYING CAUSE OF DEATH CODE` %LIKE% ",
-                encodeString(diagnostic_code, quote = '"'), collapse = " | ")
-    out = dplyr::filter(out, !!rlang::parse_expr(dx))
+    dx_script = paste0(
+      "(",
+      paste0(
+        as.character(DBI::dbQuoteIdentifier(con, "UNDERLYING CAUSE OF DEATH CODE")),
+        " LIKE ",
+        as.character(DBI::dbQuoteString(con, diagnostic_code)),
+        collapse = " OR "
+      ),
+      ")"
+    )
+    out = dplyr::filter(out, dplyr::sql(dx_script))
   }
   if (!is.null(age_script)) {
     out = dplyr::filter(out, !!rlang::parse_expr(age_script))
@@ -551,7 +563,7 @@ get_ph_deaths = function(
       mutate(new_id    = as.integer(new_id),
              Age_index = as.integer(factor(AgeGroup, levels = age_levels)),
              time_id   = as.integer(factor(fin_year))
-             )
+      )
 
 
 

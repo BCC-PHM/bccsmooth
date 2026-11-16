@@ -4,7 +4,7 @@
 #======================================================
 library(dplyr)
 library(sf)
-
+library(readxl)
 #======================================================
 #boundaries: project and repair once
 #======================================================
@@ -41,6 +41,14 @@ ward21pop = readRDS("data-raw/ward21pop_2001_2024_bham.rds") %>%
 lsoa11_to_lsoa21 = readRDS("data-raw/lsoa11_to_lsoa21_weights.rds") %>%
   select(lsoa11, lsoa21, weight)
 
+
+#------------------------------------------------------
+#lsoa11 -> wd21 best fit (for the old ward years)
+#------------------------------------------------------
+lsoa11_ward21_bf_lookup = read_excel("data-raw/LSOA11_WD21_LAD21_EW_LU_V2.xlsx") %>%
+  filter(LAD21NM == "Birmingham") %>%
+  distinct(bf_ward = WD21CD, LSOA11CD)
+
 #------------------------------------------------------
 #checks before shipping
 #------------------------------------------------------
@@ -56,6 +64,7 @@ stopifnot(all(st_is_valid(ward21_boundaries)))
 #write
 #------------------------------------------------------
 usethis::use_data(lsoa21pop, ward21pop, lsoa11_to_lsoa21,
+                  lsoa11_ward21_bf_lookup,
                   lsoa21_boundaries, ward21_boundaries,
                   overwrite = TRUE, compress = "xz")
 
