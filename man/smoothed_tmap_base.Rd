@@ -9,12 +9,13 @@ smoothed_tmap_base(
   fill_value = "asr_median",
   fill_title = "Smoothed rate",
   title_in = "",
-  title_in_position = tm_pos_in(pos.h = 0.025, pos.v = 1.035),
   palette = "brewer.blues",
   legend_text_size = 0.6,
   legend_title_size = 0.7,
   legend_position = tm_pos_in(pos.h = 0.02, pos.v = 1.01),
-  boundary_colour = "grey70"
+  boundary_colour = "grey70",
+  scale = 1,
+  component_autoscale = FALSE
 )
 }
 \arguments{
@@ -24,15 +25,19 @@ smoothed_tmap_base(
 
 \item{fill_title}{Map title.}
 
-\item{title_in}{Small note drawn inside the map frame.}
-
-\item{title_in_position, legend_position}{tmap position objects.}
+\item{title_in}{Subtitle drawn directly under the title.}
 
 \item{palette}{A cols4all palette name, e.g. "brewer.blues".}
 
 \item{legend_text_size, legend_title_size}{Relative text sizes.}
 
+\item{legend_position}{A tmap position object.}
+
 \item{boundary_colour}{Colour of the polygon outlines.}
+
+\item{scale}{Overall scale factor passed to \code{\link[tmap:tm_layout]{tmap::tm_layout()}}.}
+
+\item{component_autoscale}{Logical, passed to \code{component.autoscale} in \code{\link[tmap:tm_layout]{tmap::tm_layout()}}.}
 }
 \value{
 A \code{tmap} object.

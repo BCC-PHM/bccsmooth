@@ -21,12 +21,14 @@
 #' @param fill_value Which rate to map: `"median"` (default) or `"mean"`.
 #'   `"asr_median"` and `"asr_mean"` are also accepted; case is ignored.
 #' @param fill_title Map title. `NULL` builds one from the data's `period`.
-#' @param title_in Note drawn inside the map frame. Left empty, a sentence
-#'   describing the reliability threshold is used.
+#' @param title_in Subtitle drawn directly under the title. Left empty, a
+#'   sentence describing the reliability threshold is used.
 #' @param title_in_position,legend_position tmap position objects.
 #' @param palette A cols4all palette name, e.g. `"brewer.blues"`.
 #' @param legend_text_size,legend_title_size Relative text sizes.
 #' @param boundary_colour Colour of the polygon outlines.
+#' @param scale Overall scale factor passed to [tmap::tm_layout()].
+#' @param component_autoscale Logical, passed to `component.autoscale` in [tmap::tm_layout()].
 #' @param fn_col,fn_row Number of facet columns and rows when mapping
 #'   age-space-time output by financial year. Ignored otherwise.
 #' @returns A `tmap` object (faceted by `fin_year` for age-space-time
@@ -47,6 +49,8 @@ plot_smoothed_map = function(final_map_data = NULL,
                              legend_title_size = 0.7,
                              legend_position = tm_pos_in(pos.h = 0.02, pos.v = 1.01),
                              boundary_colour = "grey70",
+                             scale = 1,
+                             component_autoscale = FALSE,
                              fn_col = 7,
                              fn_row = 4){
 
@@ -146,12 +150,13 @@ plot_smoothed_map = function(final_map_data = NULL,
                          fill_value = col,
                          fill_title = lab,
                          title_in   = title_in,
-                         title_in_position = title_in_position,
                          palette    = palette,
                          legend_text_size  = legend_text_size,
                          legend_title_size = legend_title_size,
                          legend_position = legend_position,
-                         boundary_colour = boundary_colour)
+                         boundary_colour = boundary_colour,
+                         scale = scale,
+                         component_autoscale = component_autoscale)
     }
 
     if (!credible_interval_map) {

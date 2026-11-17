@@ -17,6 +17,8 @@ plot_smoothed_map(
   legend_title_size = 0.7,
   legend_position = tm_pos_in(pos.h = 0.02, pos.v = 1.01),
   boundary_colour = "grey70",
+  scale = 1,
+  component_autoscale = FALSE,
   fn_col = 7,
   fn_row = 4
 )
@@ -37,8 +39,8 @@ central estimate and both bounds.}
 
 \item{fill_title}{Map title. \code{NULL} builds one from the data's \code{period}.}
 
-\item{title_in}{Note drawn inside the map frame. Left empty, a sentence
-describing the reliability threshold is used.}
+\item{title_in}{Subtitle drawn directly under the title. Left empty, a
+sentence describing the reliability threshold is used.}
 
 \item{title_in_position, legend_position}{tmap position objects.}
 
@@ -47,6 +49,10 @@ describing the reliability threshold is used.}
 \item{legend_text_size, legend_title_size}{Relative text sizes.}
 
 \item{boundary_colour}{Colour of the polygon outlines.}
+
+\item{scale}{Overall scale factor passed to \code{\link[tmap:tm_layout]{tmap::tm_layout()}}.}
+
+\item{component_autoscale}{Logical, passed to \code{component.autoscale} in \code{\link[tmap:tm_layout]{tmap::tm_layout()}}.}
 
 \item{fn_col, fn_row}{Number of facet columns and rows when mapping
 age-space-time output by financial year. Ignored otherwise.}
